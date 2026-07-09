@@ -1,0 +1,60 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Resume {
+  id               String          @id @default(cuid())
+  title            String
+  targetJob        String          @map("target_job")
+  templateType     ResumeTemplate  @default(no_photo) @map("template_type")
+  currentVersionId String?         @map("current_version_id")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+  deletedAt        DateTime?       @map("deleted_at")
+
+  versions         ResumeVersion[]
+
+  @@index([updatedAt])
+  @@index([targetJob])
+  @@index([deletedAt])
+  @@map("resumes")
+}
+
+model ResumeVersion {
+  id            String   @id @default(cuid())
+  resumeId      String   @map("resume_id")
+  versionNumber Int      @map("version_number")
+  snapshotData  String   @map("snapshot_data")
+  note          String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  resume        Resume   @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+
+  @@unique([resumeId, versionNumber])
+  @@index([resumeId, createdAt])
+  @@map("resume_versions")
+}
+
+model ResumePhoto {
+  id        String   @id @default(cuid())
+  fileName  String   @map("file_name")
+  fileUrl   String   @map("file_url")
+  mimeType  String   @map("mime_type")
+  fileSize  Int      @map("file_size")
+  width     Int?
+  height    Int?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("resume_photos")
+}
+
+enum ResumeTemplate {
+  photo
+  no_photo
+}
