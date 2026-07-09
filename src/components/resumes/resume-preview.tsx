@@ -2,6 +2,7 @@
 
 import { useI18n } from "@/components/providers/i18n-provider";
 import { translateGender } from "@/lib/i18n";
+import { isRichTextEmpty, normalizeRichTextInput } from "@/lib/rich-text";
 import type {
   ResumeEducationItem,
   ResumeExperienceItem,
@@ -14,8 +15,6 @@ import type {
 
 type ResumePreviewProps = {
   snapshot: ResumeSnapshot;
-  title?: string;
-  updatedAt?: string;
   printMode?: boolean;
 };
 
@@ -48,6 +47,15 @@ function PreviewSection({
   );
 }
 
+function RichTextBlock({ value, className = "" }: { value: string; className?: string }) {
+  return (
+    <div
+      className={`resume-richtext ${className}`.trim()}
+      dangerouslySetInnerHTML={{ __html: normalizeRichTextInput(value) }}
+    />
+  );
+}
+
 function Timeline({
   startDate,
   endDate,
@@ -65,34 +73,32 @@ function Timeline({
 
 function hasEducation(items: ResumeEducationItem[]) {
   return items.some((item) =>
-    [item.school, item.degree, item.major, item.startDate, item.endDate, item.description].some(
-      isFilled,
-    ),
+    [item.school, item.degree, item.major, item.startDate, item.endDate].some(isFilled) ||
+      !isRichTextEmpty(item.description),
   );
 }
 
 function hasExperience(items: ResumeExperienceItem[]) {
   return items.some((item) =>
-    [item.company, item.role, item.startDate, item.endDate, item.description].some(isFilled),
+    [item.company, item.role, item.startDate, item.endDate].some(isFilled) ||
+      !isRichTextEmpty(item.description),
   );
 }
 
 function hasProjects(items: ResumeProjectItem[]) {
   return items.some((item) =>
-    [item.name, item.role, item.startDate, item.endDate, item.description, item.outcome].some(
-      isFilled,
-    ),
+    [item.name, item.role, item.startDate, item.endDate].some(isFilled) ||
+      !isRichTextEmpty(item.description) ||
+      !isRichTextEmpty(item.outcome),
   );
 }
 
 function hasSkills(items: ResumeSkillItem[]) {
-  return items.some((item) => [item.category, item.details].some(isFilled));
+  return items.some((item) => isFilled(item.category) || !isRichTextEmpty(item.details));
 }
 
 export function ResumePreview({
   snapshot,
-  title,
-  updatedAt,
   printMode = false,
 }: ResumePreviewProps) {
   const { locale, t } = useI18n();
@@ -118,20 +124,17 @@ export function ResumePreview({
     return (
       <PreviewSection
         title={sectionTitleMap[config.key]}
-        emptyHint={!isFilled(snapshot.summary) ? t.emptySectionHint : undefined}
+        emptyHint={isRichTextEmpty(snapshot.summary) ? t.emptySectionHint : undefined}
       >
-        <p className="whitespace-pre-line text-sm leading-7 text-foreground/90">
-          {snapshot.summary}
-        </p>
+        <RichTextBlock value={snapshot.summary} className="text-sm leading-7 text-foreground/90" />
       </PreviewSection>
     );
   }
 
   function renderEducation(config: ResumeSectionConfigItem) {
     const visibleItems = snapshot.education.filter((item) =>
-      [item.school, item.degree, item.major, item.startDate, item.endDate, item.description].some(
-        isFilled,
-      ),
+      [item.school, item.degree, item.major, item.startDate, item.endDate].some(isFilled) ||
+        !isRichTextEmpty(item.description),
     );
 
     return (
@@ -152,9 +155,10 @@ export function ResumePreview({
               </div>
               <Timeline startDate={item.startDate} endDate={item.endDate} />
               {item.description ? (
-                <p className="whitespace-pre-line text-sm leading-7 text-foreground/90">
-                  {item.description}
-                </p>
+                <RichTextBlock
+                  value={item.description}
+                  className="text-sm leading-7 text-foreground/90"
+                />
               ) : null}
             </article>
           ))}
@@ -165,7 +169,8 @@ export function ResumePreview({
 
   function renderExperience(config: ResumeSectionConfigItem) {
     const visibleItems = snapshot.experience.filter((item) =>
-      [item.company, item.role, item.startDate, item.endDate, item.description].some(isFilled),
+      [item.company, item.role, item.startDate, item.endDate].some(isFilled) ||
+        !isRichTextEmpty(item.description),
     );
 
     return (
@@ -186,9 +191,10 @@ export function ResumePreview({
                 <Timeline startDate={item.startDate} endDate={item.endDate} />
               </div>
               {item.description ? (
-                <p className="whitespace-pre-line text-sm leading-7 text-foreground/90">
-                  {item.description}
-                </p>
+                <RichTextBlock
+                  value={item.description}
+                  className="text-sm leading-7 text-foreground/90"
+                />
               ) : null}
             </article>
           ))}
@@ -199,9 +205,9 @@ export function ResumePreview({
 
   function renderProjects(config: ResumeSectionConfigItem) {
     const visibleItems = snapshot.projects.filter((item) =>
-      [item.name, item.role, item.startDate, item.endDate, item.description, item.outcome].some(
-        isFilled,
-      ),
+      [item.name, item.role, item.startDate, item.endDate].some(isFilled) ||
+        !isRichTextEmpty(item.description) ||
+        !isRichTextEmpty(item.outcome),
     );
 
     return (
@@ -224,14 +230,18 @@ export function ResumePreview({
                 <Timeline startDate={item.startDate} endDate={item.endDate} />
               </div>
               {item.description ? (
-                <p className="whitespace-pre-line text-sm leading-7 text-foreground/90">
-                  {item.description}
-                </p>
+                <RichTextBlock
+                  value={item.description}
+                  className="text-sm leading-7 text-foreground/90"
+                />
               ) : null}
               {item.outcome ? (
-                <p className="whitespace-pre-line rounded-md bg-panel-soft px-3 py-3 text-sm leading-6 text-foreground/90">
-                  {item.outcome}
-                </p>
+                <div className="rounded-md bg-panel-soft px-3 py-3">
+                  <RichTextBlock
+                    value={item.outcome}
+                    className="text-sm leading-6 text-foreground/90"
+                  />
+                </div>
               ) : null}
             </article>
           ))}
@@ -242,7 +252,7 @@ export function ResumePreview({
 
   function renderSkills(config: ResumeSectionConfigItem) {
     const visibleItems = snapshot.skills.filter((item) =>
-      [item.category, item.details].some(isFilled),
+      isFilled(item.category) || !isRichTextEmpty(item.details),
     );
 
     return (
@@ -256,9 +266,10 @@ export function ResumePreview({
               <h3 className="text-sm font-semibold text-foreground">
                 {item.category || t.skillCategory}
               </h3>
-              <p className="mt-2 whitespace-pre-line text-sm leading-6 text-foreground/90">
-                {item.details}
-              </p>
+              <RichTextBlock
+                value={item.details}
+                className="mt-2 text-sm leading-6 text-foreground/90"
+              />
             </article>
           ))}
         </div>
@@ -300,12 +311,7 @@ export function ResumePreview({
       <div className="border-b border-line px-8 py-7">
         <div className="flex items-start justify-between gap-6">
           <div className="min-w-0 flex-1">
-            {title ? (
-              <p className="text-xs font-medium tracking-[0.12em] text-muted uppercase">
-                {title}
-              </p>
-            ) : null}
-            <div className="mt-2 flex flex-wrap items-end gap-x-4 gap-y-2">
+            <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
               <h1 className="text-3xl font-semibold text-foreground">
                 {snapshot.name || t.notFilledName}
               </h1>
@@ -320,7 +326,6 @@ export function ResumePreview({
             ) : null}
             <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted">
               {compactInfo ? <span>{compactInfo}</span> : null}
-              {updatedAt ? <span>{t.updatedTime}: {updatedAt}</span> : null}
             </div>
           </div>
           {showPhoto ? (

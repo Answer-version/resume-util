@@ -31,7 +31,7 @@ const educationItemSchema = z.object({
   major: z.string().trim().max(120, "专业名称过长"),
   startDate: z.string().trim().max(40, "开始时间过长"),
   endDate: z.string().trim().max(40, "结束时间过长"),
-  description: z.string().trim().max(500, "教育经历描述过长"),
+  description: z.string().trim().max(12000, "教育经历描述过长"),
 });
 
 const experienceItemSchema = z.object({
@@ -40,7 +40,7 @@ const experienceItemSchema = z.object({
   role: z.string().trim().max(120, "岗位名称过长"),
   startDate: z.string().trim().max(40, "开始时间过长"),
   endDate: z.string().trim().max(40, "结束时间过长"),
-  description: z.string().trim().max(1000, "工作经历描述过长"),
+  description: z.string().trim().max(12000, "工作经历描述过长"),
 });
 
 const projectItemSchema = z.object({
@@ -49,14 +49,14 @@ const projectItemSchema = z.object({
   role: z.string().trim().max(120, "项目角色过长"),
   startDate: z.string().trim().max(40, "开始时间过长"),
   endDate: z.string().trim().max(40, "结束时间过长"),
-  description: z.string().trim().max(1000, "项目描述过长"),
-  outcome: z.string().trim().max(500, "项目成果描述过长"),
+  description: z.string().trim().max(12000, "项目描述过长"),
+  outcome: z.string().trim().max(8000, "项目成果描述过长"),
 });
 
 const skillItemSchema = z.object({
   id: z.string().trim().min(1),
   category: z.string().trim().max(80, "技能分类过长"),
-  details: z.string().trim().max(500, "技能描述过长"),
+  details: z.string().trim().max(8000, "技能描述过长"),
 });
 
 export const resumeSnapshotSchema = z.object({
@@ -70,7 +70,7 @@ export const resumeSnapshotSchema = z.object({
     .regex(/^1\d{10}$/, "请输入 11 位手机号"),
   targetJob: z.string().trim().min(1, "请输入求职岗位").max(120, "求职岗位过长"),
   headline: z.string().trim().max(120, "求职标题过长"),
-  summary: z.string().trim().max(1000, "个人优势描述过长"),
+  summary: z.string().trim().max(12000, "个人优势描述过长"),
   education: z.array(educationItemSchema).max(10, "教育经历不能超过 10 条"),
   experience: z.array(experienceItemSchema).max(10, "工作经历不能超过 10 条"),
   projects: z.array(projectItemSchema).max(10, "项目经历不能超过 10 条"),

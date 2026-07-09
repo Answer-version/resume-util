@@ -12,30 +12,21 @@ type PrintPageContentProps = {
 };
 
 export function PrintPageContent({ detail, resumeId }: PrintPageContentProps) {
-  const { t, formatDateTime } = useI18n();
+  const { t } = useI18n();
 
   return (
     <div className="print-shell min-h-screen bg-background px-6 py-6">
       <div className="no-print mx-auto mb-6 flex w-full max-w-[820px] flex-col gap-4 rounded-lg border border-line bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-sm font-semibold text-foreground">{detail.title}</p>
-          <p className="mt-1 text-sm text-muted">
-            {t.currentVersion} {detail.currentVersion.versionNumber} · {t.savedOn}{" "}
-            {formatDateTime(detail.updatedAt)}
-          </p>
-        </div>
+        <p className="text-sm text-muted">
+          {t.currentVersion} {detail.currentVersion.versionNumber}
+        </p>
         <div className="flex flex-wrap items-center gap-3">
           <LanguageSwitcher />
           <PrintToolbar resumeId={resumeId} />
         </div>
       </div>
 
-      <ResumePreview
-        title={detail.title}
-        snapshot={detail.currentVersion.snapshotData}
-        updatedAt={formatDateTime(detail.updatedAt)}
-        printMode
-      />
+      <ResumePreview snapshot={detail.currentVersion.snapshotData} printMode />
     </div>
   );
 }

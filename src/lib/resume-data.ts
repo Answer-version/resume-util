@@ -11,6 +11,7 @@ import type {
   ResumeSnapshot,
   TemplateType,
 } from "@/types/resume";
+import { normalizeRichTextInput } from "@/lib/rich-text";
 import { resumeSnapshotSchema } from "@/lib/validators";
 
 const defaultSectionOrder: ResumeSectionKey[] = [
@@ -122,7 +123,7 @@ function sanitizeEducationItems(value: unknown): ResumeEducationItem[] {
         major: getStringValue(raw?.major),
         startDate: getStringValue(raw?.startDate),
         endDate: getStringValue(raw?.endDate),
-        description: getStringValue(raw?.description),
+        description: normalizeRichTextInput(raw?.description),
       };
 
       return hasAnyValue([
@@ -153,7 +154,7 @@ function sanitizeExperienceItems(value: unknown): ResumeExperienceItem[] {
         role: getStringValue(raw?.role),
         startDate: getStringValue(raw?.startDate),
         endDate: getStringValue(raw?.endDate),
-        description: getStringValue(raw?.description),
+        description: normalizeRichTextInput(raw?.description),
       };
 
       return hasAnyValue([
@@ -183,8 +184,8 @@ function sanitizeProjectItems(value: unknown): ResumeProjectItem[] {
         role: getStringValue(raw?.role),
         startDate: getStringValue(raw?.startDate),
         endDate: getStringValue(raw?.endDate),
-        description: getStringValue(raw?.description),
-        outcome: getStringValue(raw?.outcome),
+        description: normalizeRichTextInput(raw?.description),
+        outcome: normalizeRichTextInput(raw?.outcome),
       };
 
       return hasAnyValue([
@@ -212,7 +213,7 @@ function sanitizeSkillItems(value: unknown): ResumeSkillItem[] {
       const nextItem: ResumeSkillItem = {
         id: getStringValue(raw?.id) || createSectionId(),
         category: getStringValue(raw?.category),
-        details: getStringValue(raw?.details),
+        details: normalizeRichTextInput(raw?.details),
       };
 
       return hasAnyValue([nextItem.category, nextItem.details]) ? nextItem : null;
@@ -228,6 +229,7 @@ function sanitizeSectionConfig(value: unknown): ResumeSectionConfigItem[] {
   }
 
   const incomingMap = new Map<ResumeSectionKey, ResumeSectionConfigItem>();
+  const orderedKeys: ResumeSectionKey[] = [];
 
   value.forEach((item) => {
     const raw = item as Partial<ResumeSectionConfigItem> | null;
@@ -238,6 +240,10 @@ function sanitizeSectionConfig(value: unknown): ResumeSectionConfigItem[] {
       raw?.key === "projects" ||
       raw?.key === "skills"
     ) {
+      if (!orderedKeys.includes(raw.key)) {
+        orderedKeys.push(raw.key);
+      }
+
       incomingMap.set(raw.key, {
         key: raw.key,
         visible: typeof raw.visible === "boolean" ? raw.visible : true,
@@ -246,7 +252,15 @@ function sanitizeSectionConfig(value: unknown): ResumeSectionConfigItem[] {
     }
   });
 
-  return defaultSectionOrder.map((key) => incomingMap.get(key) ?? defaults.find((item) => item.key === key)!);
+  defaultSectionOrder.forEach((key) => {
+    if (!orderedKeys.includes(key)) {
+      orderedKeys.push(key);
+    }
+  });
+
+  return orderedKeys.map(
+    (key) => incomingMap.get(key) ?? defaults.find((item) => item.key === key)!,
+  );
 }
 
 export function sanitizeSnapshotInput(value: unknown): ResumeSnapshot {
@@ -268,7 +282,7 @@ export function sanitizeSnapshotInput(value: unknown): ResumeSnapshot {
     phone: getStringValue(raw.phone),
     targetJob: getStringValue(raw.targetJob),
     headline: getStringValue(raw.headline),
-    summary: getStringValue(raw.summary),
+    summary: normalizeRichTextInput(raw.summary),
     education: sanitizeEducationItems(raw.education),
     experience: sanitizeExperienceItems(raw.experience),
     projects: sanitizeProjectItems(raw.projects),

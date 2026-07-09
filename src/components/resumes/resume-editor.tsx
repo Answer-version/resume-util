@@ -19,6 +19,7 @@ import { useRouter } from "next/navigation";
 import { ChangeEvent, useMemo, useRef, useState } from "react";
 
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { RichTextEditor } from "@/components/rich-text-editor";
 import { useI18n } from "@/components/providers/i18n-provider";
 import { HistoryPanel } from "@/components/resumes/history-panel";
 import { ResumePreview } from "@/components/resumes/resume-preview";
@@ -27,9 +28,11 @@ import {
   createEmptyExperienceItem,
   createEmptyProjectItem,
   createEmptySkillItem,
+  normalizeSnapshot,
   reorderSectionConfigItems,
   updateSectionConfigItem,
 } from "@/lib/resume-data";
+import { sanitizeRichText } from "@/lib/rich-text";
 import type {
   ResumeDetail,
   ResumeEducationItem,
@@ -129,6 +132,7 @@ export function ResumeEditor({
   const router = useRouter();
   const { t, formatDateTime } = useI18n();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const formRef = useRef<ResumeFormState>(initialForm);
   const [form, setForm] = useState<ResumeFormState>(initialForm);
   const [history, setHistory] = useState<ResumeHistoryItem[]>(initialHistory);
   const [detail, setDetail] = useState<ResumeDetail | undefined>(initialDetail);
@@ -160,6 +164,17 @@ export function ResumeEditor({
     skills: t.skillSection,
   };
 
+  function setFormState(updater: ResumeFormState | ((current: ResumeFormState) => ResumeFormState)) {
+    setForm((current) => {
+      const next =
+        typeof updater === "function"
+          ? (updater as (current: ResumeFormState) => ResumeFormState)(current)
+          : updater;
+      formRef.current = next;
+      return next;
+    });
+  }
+
   function clearError(field: keyof FormErrors) {
     setErrors((current) => ({
       ...current,
@@ -168,7 +183,7 @@ export function ResumeEditor({
   }
 
   function updateContent<K extends keyof ResumeSnapshot>(key: K, value: ResumeSnapshot[K]) {
-    setForm((current) => ({
+    setFormState((current) => ({
       ...current,
       content: {
         ...current.content,
@@ -192,7 +207,7 @@ export function ResumeEditor({
     const { name, value } = event.target;
 
     if (name === "title") {
-      setForm((current) => ({
+      setFormState((current) => ({
         ...current,
         title: value,
       }));
@@ -208,9 +223,8 @@ export function ResumeEditor({
     updateContent(name as keyof ResumeSnapshot, value as never);
   }
 
-  function handleTextareaChange(event: ChangeEvent<HTMLTextAreaElement>) {
-    const { name, value } = event.target;
-    updateContent(name as keyof ResumeSnapshot, value as never);
+  function updateRichTextField<K extends keyof ResumeSnapshot>(key: K, value: string) {
+    updateContent(key, sanitizeRichText(value) as ResumeSnapshot[K]);
   }
 
   function handleTemplateChange(templateType: "photo" | "no_photo") {
@@ -355,7 +369,7 @@ export function ResumeEditor({
     }
 
     setDetail(data);
-    setForm({
+    setFormState({
       title: data.title,
       content: data.currentVersion.snapshotData,
     });
@@ -375,11 +389,12 @@ export function ResumeEditor({
     setBusy(true);
 
     try {
+      const nextForm = formRef.current;
       const payload = {
-        title: form.title,
-        targetJob: form.content.targetJob,
-        templateType: form.content.templateType,
-        content: form.content,
+        title: nextForm.title,
+        targetJob: nextForm.content.targetJob,
+        templateType: nextForm.content.templateType,
+        content: nextForm.content,
         note: versionNote.trim() || null,
       };
 
@@ -405,8 +420,46 @@ export function ResumeEditor({
         return;
       }
 
-      await Promise.all([refreshDetail(), refreshHistory()]);
-      router.refresh();
+      const savedSnapshot = normalizeSnapshot(nextForm.content, {
+        targetJob: nextForm.content.targetJob,
+        templateType: nextForm.content.templateType,
+        layoutMode: nextForm.content.layoutMode,
+        sectionConfig: nextForm.content.sectionConfig,
+      });
+      const savedAt = data.updatedAt || new Date().toISOString();
+
+      setFormState({
+        title: nextForm.title,
+        content: savedSnapshot,
+      });
+      setDetail((current) =>
+        current
+          ? {
+              ...current,
+              title: nextForm.title,
+              targetJob: nextForm.content.targetJob,
+              templateType: nextForm.content.templateType,
+              updatedAt: savedAt,
+              currentVersionId: data.currentVersionId,
+              currentVersion: {
+                id: data.currentVersionId,
+                versionNumber: data.versionNumber,
+                createdAt: savedAt,
+                snapshotData: savedSnapshot,
+              },
+            }
+          : current,
+      );
+      setHistory((current) => [
+        {
+          id: data.currentVersionId,
+          versionNumber: data.versionNumber,
+          note: payload.note,
+          createdAt: savedAt,
+          snapshotData: savedSnapshot,
+        },
+        ...current,
+      ]);
       setVersionNote("");
       setNotice({
         tone: "success",
@@ -578,14 +631,11 @@ export function ResumeEditor({
         title={t.summary}
         muted={config?.visible ? t.sectionVisible : t.sectionHidden}
       >
-        <textarea
-          id="summary"
-          name="summary"
+        <RichTextEditor
           value={form.content.summary}
-          onChange={handleTextareaChange}
-          rows={5}
-          className={textareaClass}
+          onChange={(value) => updateRichTextField("summary", value)}
           placeholder={t.summaryPlaceholder}
+          minHeightClassName="min-h-[160px]"
         />
       </SectionCard>
     );
@@ -661,13 +711,11 @@ export function ResumeEditor({
                 />
               </div>
             </div>
-            <textarea
+            <RichTextEditor
               value={item.description}
-              onChange={(event) =>
-                updateArrayItem<ResumeEducationItem>("education", item.id, "description", event.target.value)
+              onChange={(value) =>
+                updateArrayItem<ResumeEducationItem>("education", item.id, "description", value)
               }
-              rows={4}
-              className={textareaClass}
               placeholder={t.educationDescriptionPlaceholder}
             />
           </ArrayItemCard>
@@ -736,13 +784,11 @@ export function ResumeEditor({
                 placeholder={t.endDatePlaceholder}
               />
             </div>
-            <textarea
+            <RichTextEditor
               value={item.description}
-              onChange={(event) =>
-                updateArrayItem<ResumeExperienceItem>("experience", item.id, "description", event.target.value)
+              onChange={(value) =>
+                updateArrayItem<ResumeExperienceItem>("experience", item.id, "description", value)
               }
-              rows={5}
-              className={textareaClass}
               placeholder={t.experienceDescriptionPlaceholder}
             />
           </ArrayItemCard>
@@ -811,23 +857,20 @@ export function ResumeEditor({
                 placeholder={t.endDatePlaceholder}
               />
             </div>
-            <textarea
+            <RichTextEditor
               value={item.description}
-              onChange={(event) =>
-                updateArrayItem<ResumeProjectItem>("projects", item.id, "description", event.target.value)
+              onChange={(value) =>
+                updateArrayItem<ResumeProjectItem>("projects", item.id, "description", value)
               }
-              rows={5}
-              className={textareaClass}
               placeholder={t.projectDescriptionPlaceholder}
             />
-            <textarea
+            <RichTextEditor
               value={item.outcome}
-              onChange={(event) =>
-                updateArrayItem<ResumeProjectItem>("projects", item.id, "outcome", event.target.value)
+              onChange={(value) =>
+                updateArrayItem<ResumeProjectItem>("projects", item.id, "outcome", value)
               }
-              rows={3}
-              className={textareaClass}
               placeholder={t.outcomePlaceholder}
+              minHeightClassName="min-h-[100px]"
             />
           </ArrayItemCard>
         ))}
@@ -868,14 +911,13 @@ export function ResumeEditor({
                 className={textInputClass}
                 placeholder={t.skillCategoryPlaceholder}
               />
-              <textarea
+              <RichTextEditor
                 value={item.details}
-                onChange={(event) =>
-                  updateArrayItem<ResumeSkillItem>("skills", item.id, "details", event.target.value)
+                onChange={(value) =>
+                  updateArrayItem<ResumeSkillItem>("skills", item.id, "details", value)
                 }
-                rows={3}
-                className={textareaClass}
                 placeholder={t.skillDetailsPlaceholder}
+                minHeightClassName="min-h-[100px]"
               />
             </div>
           </ArrayItemCard>
@@ -1302,11 +1344,7 @@ export function ResumeEditor({
           </section>
 
           <section className="print-shell">
-            <ResumePreview
-              title={form.title}
-              snapshot={form.content}
-              updatedAt={detail?.updatedAt ? formatDateTime(detail.updatedAt) : undefined}
-            />
+            <ResumePreview snapshot={form.content} />
           </section>
         </main>
 

@@ -83,6 +83,60 @@ select {
   }
 }
 
+.resume-rich-editor {
+  position: relative;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.resume-rich-editor[data-empty="true"]::before {
+  content: attr(data-placeholder);
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.resume-rich-editor p {
+  margin: 0 0 0.75rem;
+}
+
+.resume-rich-editor ul,
+.resume-rich-editor ol,
+.resume-richtext ul,
+.resume-richtext ol {
+  margin: 0.5rem 0 0.75rem 1.25rem;
+  padding: 0;
+}
+
+.resume-rich-editor li,
+.resume-richtext li {
+  margin: 0.25rem 0;
+}
+
+.resume-richtext p {
+  margin: 0 0 0.75rem;
+}
+
+.resume-richtext {
+  white-space: normal;
+  word-break: break-word;
+}
+
+.resume-richtext br {
+  display: block;
+  content: "";
+  margin-top: 0.35rem;
+}
+
+.resume-richtext p:last-child,
+.resume-richtext ul:last-child,
+.resume-richtext ol:last-child {
+  margin-bottom: 0;
+}
+
 @media print {
   .no-print {
     display: none !important;
