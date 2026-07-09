@@ -1,9 +1,53 @@
 export type TemplateType = "photo" | "no_photo";
+export type ResumeLayoutMode = "single" | "split";
+export type ResumeSectionKey = "summary" | "education" | "experience" | "projects" | "skills";
+export type ResumeSectionColumn = "main" | "side";
+
+export type ResumeSectionConfigItem = {
+  key: ResumeSectionKey;
+  visible: boolean;
+  column: ResumeSectionColumn;
+};
 
 export type ResumePhotoData = {
   photoId: string | null;
   url: string | null;
 } | null;
+
+export type ResumeEducationItem = {
+  id: string;
+  school: string;
+  degree: string;
+  major: string;
+  startDate: string;
+  endDate: string;
+  description: string;
+};
+
+export type ResumeExperienceItem = {
+  id: string;
+  company: string;
+  role: string;
+  startDate: string;
+  endDate: string;
+  description: string;
+};
+
+export type ResumeProjectItem = {
+  id: string;
+  name: string;
+  role: string;
+  startDate: string;
+  endDate: string;
+  description: string;
+  outcome: string;
+};
+
+export type ResumeSkillItem = {
+  id: string;
+  category: string;
+  details: string;
+};
 
 export type ResumeSnapshot = {
   name: string;
@@ -12,6 +56,14 @@ export type ResumeSnapshot = {
   email: string;
   phone: string;
   targetJob: string;
+  headline: string;
+  summary: string;
+  education: ResumeEducationItem[];
+  experience: ResumeExperienceItem[];
+  projects: ResumeProjectItem[];
+  skills: ResumeSkillItem[];
+  sectionConfig: ResumeSectionConfigItem[];
+  layoutMode: ResumeLayoutMode;
   templateType: TemplateType;
   photo: ResumePhotoData;
 };

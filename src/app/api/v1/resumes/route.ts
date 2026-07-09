@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 
-import { mapResumeListItem, normalizeSnapshot } from "@/lib/resume-data";
+import {
+  mapResumeListItem,
+  normalizeSnapshot,
+  sanitizeSnapshotInput,
+} from "@/lib/resume-data";
 import { prisma } from "@/lib/prisma";
 import { createResumeSchema } from "@/lib/validators";
 
@@ -30,7 +34,10 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const parsed = createResumeSchema.safeParse(body);
+    const parsed = createResumeSchema.safeParse({
+      ...body,
+      content: sanitizeSnapshotInput(body.content),
+    });
 
     if (!parsed.success) {
       return NextResponse.json(

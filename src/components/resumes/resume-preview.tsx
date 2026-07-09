@@ -1,8 +1,16 @@
 "use client";
 
-import type { ResumeSnapshot } from "@/types/resume";
 import { useI18n } from "@/components/providers/i18n-provider";
 import { translateGender } from "@/lib/i18n";
+import type {
+  ResumeEducationItem,
+  ResumeExperienceItem,
+  ResumeProjectItem,
+  ResumeSectionConfigItem,
+  ResumeSectionKey,
+  ResumeSkillItem,
+  ResumeSnapshot,
+} from "@/types/resume";
 
 type ResumePreviewProps = {
   snapshot: ResumeSnapshot;
@@ -11,19 +19,74 @@ type ResumePreviewProps = {
   printMode?: boolean;
 };
 
-function PreviewField({
-  label,
-  value,
+function isFilled(value: string | null | undefined) {
+  return Boolean(value?.trim());
+}
+
+function compactLine(parts: Array<string | number | null | undefined>) {
+  return parts.filter((part) => String(part ?? "").trim()).join(" · ");
+}
+
+function PreviewSection({
+  title,
+  children,
+  emptyHint,
 }: {
-  label: string;
-  value: string | number;
+  title: string;
+  children?: React.ReactNode;
+  emptyHint?: string;
 }) {
   return (
-    <div className="grid grid-cols-[88px_1fr] gap-3 border-b border-line py-3 text-sm">
-      <dt className="text-muted">{label}</dt>
-      <dd className="font-medium text-foreground">{value}</dd>
-    </div>
+    <section>
+      <div className="mb-4 border-b border-line pb-2">
+        <h2 className="text-sm font-semibold tracking-[0.08em] text-foreground uppercase">
+          {title}
+        </h2>
+      </div>
+      {emptyHint ? <p className="text-sm leading-6 text-muted">{emptyHint}</p> : children}
+    </section>
   );
+}
+
+function Timeline({
+  startDate,
+  endDate,
+}: {
+  startDate?: string;
+  endDate?: string;
+}) {
+  const text = compactLine([startDate, endDate]);
+  if (!text) {
+    return null;
+  }
+
+  return <p className="text-sm text-muted">{text}</p>;
+}
+
+function hasEducation(items: ResumeEducationItem[]) {
+  return items.some((item) =>
+    [item.school, item.degree, item.major, item.startDate, item.endDate, item.description].some(
+      isFilled,
+    ),
+  );
+}
+
+function hasExperience(items: ResumeExperienceItem[]) {
+  return items.some((item) =>
+    [item.company, item.role, item.startDate, item.endDate, item.description].some(isFilled),
+  );
+}
+
+function hasProjects(items: ResumeProjectItem[]) {
+  return items.some((item) =>
+    [item.name, item.role, item.startDate, item.endDate, item.description, item.outcome].some(
+      isFilled,
+    ),
+  );
+}
+
+function hasSkills(items: ResumeSkillItem[]) {
+  return items.some((item) => [item.category, item.details].some(isFilled));
 }
 
 export function ResumePreview({
@@ -34,22 +97,215 @@ export function ResumePreview({
 }: ResumePreviewProps) {
   const { locale, t } = useI18n();
   const showPhoto = snapshot.templateType === "photo";
+  const compactInfo = [
+    snapshot.gender ? translateGender(locale, snapshot.gender) : "",
+    snapshot.age ? `${snapshot.age}` : "",
+    snapshot.phone,
+    snapshot.email,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const sectionTitleMap: Record<ResumeSectionKey, string> = {
+    summary: t.summary,
+    education: t.educationSection,
+    experience: t.experienceSection,
+    projects: t.projectSection,
+    skills: t.skillSection,
+  };
+
+  function renderSummary(config: ResumeSectionConfigItem) {
+    return (
+      <PreviewSection
+        title={sectionTitleMap[config.key]}
+        emptyHint={!isFilled(snapshot.summary) ? t.emptySectionHint : undefined}
+      >
+        <p className="whitespace-pre-line text-sm leading-7 text-foreground/90">
+          {snapshot.summary}
+        </p>
+      </PreviewSection>
+    );
+  }
+
+  function renderEducation(config: ResumeSectionConfigItem) {
+    const visibleItems = snapshot.education.filter((item) =>
+      [item.school, item.degree, item.major, item.startDate, item.endDate, item.description].some(
+        isFilled,
+      ),
+    );
+
+    return (
+      <PreviewSection
+        title={sectionTitleMap[config.key]}
+        emptyHint={!hasEducation(snapshot.education) ? t.emptySectionHint : undefined}
+      >
+        <div className="space-y-5">
+          {visibleItems.map((item) => (
+            <article key={item.id} className="space-y-2">
+              <div>
+                <h3 className="text-base font-semibold text-foreground">
+                  {item.school || t.school}
+                </h3>
+                <p className="text-sm text-foreground/80">
+                  {compactLine([item.degree, item.major])}
+                </p>
+              </div>
+              <Timeline startDate={item.startDate} endDate={item.endDate} />
+              {item.description ? (
+                <p className="whitespace-pre-line text-sm leading-7 text-foreground/90">
+                  {item.description}
+                </p>
+              ) : null}
+            </article>
+          ))}
+        </div>
+      </PreviewSection>
+    );
+  }
+
+  function renderExperience(config: ResumeSectionConfigItem) {
+    const visibleItems = snapshot.experience.filter((item) =>
+      [item.company, item.role, item.startDate, item.endDate, item.description].some(isFilled),
+    );
+
+    return (
+      <PreviewSection
+        title={sectionTitleMap[config.key]}
+        emptyHint={!hasExperience(snapshot.experience) ? t.emptySectionHint : undefined}
+      >
+        <div className="space-y-6">
+          {visibleItems.map((item) => (
+            <article key={item.id} className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-semibold text-foreground">
+                    {item.role || t.role}
+                  </h3>
+                  <p className="text-sm text-foreground/80">{item.company}</p>
+                </div>
+                <Timeline startDate={item.startDate} endDate={item.endDate} />
+              </div>
+              {item.description ? (
+                <p className="whitespace-pre-line text-sm leading-7 text-foreground/90">
+                  {item.description}
+                </p>
+              ) : null}
+            </article>
+          ))}
+        </div>
+      </PreviewSection>
+    );
+  }
+
+  function renderProjects(config: ResumeSectionConfigItem) {
+    const visibleItems = snapshot.projects.filter((item) =>
+      [item.name, item.role, item.startDate, item.endDate, item.description, item.outcome].some(
+        isFilled,
+      ),
+    );
+
+    return (
+      <PreviewSection
+        title={sectionTitleMap[config.key]}
+        emptyHint={!hasProjects(snapshot.projects) ? t.emptySectionHint : undefined}
+      >
+        <div className="space-y-6">
+          {visibleItems.map((item) => (
+            <article key={item.id} className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-semibold text-foreground">
+                    {item.name || t.projectName}
+                  </h3>
+                  {item.role ? (
+                    <p className="text-sm text-foreground/80">{item.role}</p>
+                  ) : null}
+                </div>
+                <Timeline startDate={item.startDate} endDate={item.endDate} />
+              </div>
+              {item.description ? (
+                <p className="whitespace-pre-line text-sm leading-7 text-foreground/90">
+                  {item.description}
+                </p>
+              ) : null}
+              {item.outcome ? (
+                <p className="whitespace-pre-line rounded-md bg-panel-soft px-3 py-3 text-sm leading-6 text-foreground/90">
+                  {item.outcome}
+                </p>
+              ) : null}
+            </article>
+          ))}
+        </div>
+      </PreviewSection>
+    );
+  }
+
+  function renderSkills(config: ResumeSectionConfigItem) {
+    const visibleItems = snapshot.skills.filter((item) =>
+      [item.category, item.details].some(isFilled),
+    );
+
+    return (
+      <PreviewSection
+        title={sectionTitleMap[config.key]}
+        emptyHint={!hasSkills(snapshot.skills) ? t.emptySectionHint : undefined}
+      >
+        <div className="space-y-4">
+          {visibleItems.map((item) => (
+            <article key={item.id} className="rounded-md bg-panel-soft px-4 py-3">
+              <h3 className="text-sm font-semibold text-foreground">
+                {item.category || t.skillCategory}
+              </h3>
+              <p className="mt-2 whitespace-pre-line text-sm leading-6 text-foreground/90">
+                {item.details}
+              </p>
+            </article>
+          ))}
+        </div>
+      </PreviewSection>
+    );
+  }
+
+  function renderSection(config: ResumeSectionConfigItem) {
+    if (!config.visible) {
+      return null;
+    }
+
+    switch (config.key) {
+      case "summary":
+        return renderSummary(config);
+      case "education":
+        return renderEducation(config);
+      case "experience":
+        return renderExperience(config);
+      case "projects":
+        return renderProjects(config);
+      case "skills":
+        return renderSkills(config);
+      default:
+        return null;
+    }
+  }
+
+  const visibleSections = snapshot.sectionConfig.filter((item) => item.visible);
+  const mainSections = visibleSections.filter((item) => item.column === "main");
+  const sideSections = visibleSections.filter((item) => item.column === "side");
 
   return (
     <div
       className={`${
         printMode ? "shadow-none" : "shadow-sm"
-      } mx-auto w-full max-w-[820px] rounded-lg border border-line bg-white`}
+      } mx-auto w-full max-w-[860px] rounded-lg border border-line bg-white`}
     >
       <div className="border-b border-line px-8 py-7">
         <div className="flex items-start justify-between gap-6">
-          <div className="space-y-3">
+          <div className="min-w-0 flex-1">
             {title ? (
               <p className="text-xs font-medium tracking-[0.12em] text-muted uppercase">
                 {title}
               </p>
             ) : null}
-            <div className="space-y-1">
+            <div className="mt-2 flex flex-wrap items-end gap-x-4 gap-y-2">
               <h1 className="text-3xl font-semibold text-foreground">
                 {snapshot.name || t.notFilledName}
               </h1>
@@ -57,14 +313,23 @@ export function ResumePreview({
                 {snapshot.targetJob || t.notFilledJob}
               </p>
             </div>
+            {snapshot.headline ? (
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-foreground/85">
+                {snapshot.headline}
+              </p>
+            ) : null}
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted">
+              {compactInfo ? <span>{compactInfo}</span> : null}
+              {updatedAt ? <span>{t.updatedTime}: {updatedAt}</span> : null}
+            </div>
           </div>
           {showPhoto ? (
-            <div className="h-28 w-24 overflow-hidden rounded-md border border-line bg-panel-soft">
+            <div className="h-24 w-20 shrink-0 overflow-hidden rounded-md border border-line bg-panel-soft">
               {snapshot.photo?.url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={snapshot.photo.url}
-                  alt="简历照片"
+                  alt={t.photoPlaceholder}
                   className="h-full w-full object-cover"
                 />
               ) : (
@@ -77,48 +342,26 @@ export function ResumePreview({
         </div>
       </div>
 
-      <div className="grid gap-8 px-8 py-7 lg:grid-cols-[1.3fr_0.9fr]">
-        <section>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-foreground">{t.basicInfo}</h2>
-            {updatedAt ? <p className="text-xs text-muted">{t.updatedTime} {updatedAt}</p> : null}
+      {snapshot.layoutMode === "single" ? (
+        <div className="space-y-8 px-8 py-7">
+          {visibleSections.map((config) => (
+            <div key={config.key}>{renderSection(config)}</div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid gap-8 px-8 py-7 lg:grid-cols-[1.45fr_0.95fr]">
+          <div className="space-y-8">
+            {mainSections.map((config) => (
+              <div key={config.key}>{renderSection(config)}</div>
+            ))}
           </div>
-          <dl>
-            <PreviewField label={t.name} value={snapshot.name || "-"} />
-            <PreviewField
-              label={t.gender}
-              value={snapshot.gender ? translateGender(locale, snapshot.gender) : "-"}
-            />
-            <PreviewField label={t.age} value={snapshot.age || "-"} />
-            <PreviewField label={t.email} value={snapshot.email || "-"} />
-            <PreviewField label={t.phone} value={snapshot.phone || "-"} />
-            <PreviewField label={t.targetJobLabel} value={snapshot.targetJob || "-"} />
-          </dl>
-        </section>
-
-        <section className="space-y-6">
-          <div className="rounded-md border border-line bg-panel-soft px-5 py-5">
-            <p className="text-xs font-medium tracking-[0.1em] text-muted uppercase">
-              {t.templateStyle}
-            </p>
-            <p className="mt-3 text-lg font-semibold text-foreground">
-              {showPhoto ? t.photoTemplateName : t.noPhotoTemplateName}
-            </p>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              {t.previewHint}
-            </p>
+          <div className="space-y-8">
+            {sideSections.map((config) => (
+              <div key={config.key}>{renderSection(config)}</div>
+            ))}
           </div>
-
-          <div className="rounded-md border border-line px-5 py-5">
-            <h2 className="text-sm font-semibold text-foreground">{t.submissionTips}</h2>
-            <ul className="mt-3 space-y-2 text-sm leading-6 text-muted">
-              <li>{t.tip1}</li>
-              <li>{t.tip2}</li>
-              <li>{t.tip3}</li>
-            </ul>
-          </div>
-        </section>
-      </div>
+        </div>
+      )}
     </div>
   );
 }
