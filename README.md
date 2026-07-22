@@ -2,6 +2,25 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+### 本地开发
+
+复制 `.env.example` 为 `.env`，填入 PostgreSQL 连接串，然后执行：
+
+```bash
+npm install
+npm run db:push
+npm run dev
+```
+
+生产部署推荐使用 Vercel（应用）+ Neon（PostgreSQL）+ Vercel Blob（照片）。部署步骤：
+
+1. 将仓库导入 [Vercel](https://vercel.com/new)，Framework 选择 Next.js。
+2. 在 Neon 创建数据库，将 `DATABASE_URL` 添加到 Vercel 项目的 Production 环境变量。
+3. 在 Vercel Storage 创建 Blob，并将生成的 `BLOB_READ_WRITE_TOKEN` 添加到 Production 环境变量。
+4. 在本地运行 `DATABASE_URL='生产连接串' npm run db:push` 创建表，然后在 Vercel 重新部署。
+
+部署完成后 Vercel 会提供一个 `*.vercel.app` 公网地址，也可以绑定自己的域名。
+
 First, run the development server:
 
 ```bash

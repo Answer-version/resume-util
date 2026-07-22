@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
 
+import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
@@ -30,13 +31,22 @@ export async function POST(request: Request) {
 
     const extension = file.name.split(".").pop() || "jpg";
     const fileName = `${Date.now()}-${randomUUID()}.${extension}`;
-    const uploadDir = join(process.cwd(), "public", "uploads", "resume-photos");
-    const localPath = join(uploadDir, fileName);
-    const fileUrl = `/uploads/resume-photos/${fileName}`;
     const buffer = Buffer.from(await file.arrayBuffer());
+    let fileUrl: string;
 
-    await mkdir(uploadDir, { recursive: true });
-    await writeFile(localPath, buffer);
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      const blob = await put(`resume-photos/${fileName}`, buffer, {
+        access: "public",
+        contentType: file.type,
+      });
+      fileUrl = blob.url;
+    } else {
+      const uploadDir = join(process.cwd(), "public", "uploads", "resume-photos");
+      const localPath = join(uploadDir, fileName);
+      fileUrl = `/uploads/resume-photos/${fileName}`;
+      await mkdir(uploadDir, { recursive: true });
+      await writeFile(localPath, buffer);
+    }
 
     const photo = await prisma.resumePhoto.create({
       data: {
